@@ -1,0 +1,11 @@
+- hosts: all
+  become: yes
+
+  vars:
+    private_token: '7_A64Qvi1xfxsMhSGvHe'
+
+  tasks:
+  - include_tasks: tasks/main.yml
+
+  handlers:
+  - include_tasks: handlers/main.yml

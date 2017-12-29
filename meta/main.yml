@@ -1,0 +1,5 @@
+galaxy_info:
+  author: Brydon Cheyney
+  description: Ansible role to automate the installation and configuration of Gitlab
+  min_ansible_version: 2.2
+dependencies: []

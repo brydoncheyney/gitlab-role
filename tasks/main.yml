@@ -1,0 +1,134 @@
+- become: no
+  local_action:
+    module: stat
+    path: demo.key
+  register: ssh_private_key
+
+- assert:
+    that:
+      - ssh_private_key.stat.exists
+    msg: 'Private key file `demo.key` must exist! Generate key pair with `ssh-keygen -t rsa -b 4096 -C "demo@dev.null" -f demo.key -N ""`'
+
+- become: no
+  local_action:
+    module: stat
+    path: demo.key.pub
+  register: ssh_public_key
+
+- assert:
+    that:
+      - ssh_public_key.stat.exists
+    msg: 'Public key file `demo.key.pub` must exist! Generate key pair with `ssh-keygen -t rsa -b 4096 -C "demo@dev.null" -f demo.key -N ""`'
+
+- set_fact:
+    api_url: '{{ ansible_default_ipv4.address }}'
+
+- name: install dependencies
+  package:
+    name: '{{ item }}'
+    state: present
+  with_items:
+    - curl
+    - policycoreutils-python
+
+- name: install gitlab gpg key
+  rpm_key:
+    state: present
+    key: https://packages.gitlab.com/gpg.key
+
+- name: install gitlab repo
+  get_url:
+    url: https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/config_file.repo?os=centos&dist=7
+    dest: /etc/yum.repos.d/gitlab-ce.repo
+    owner: root
+    group: root
+    mode: 0644
+
+- name: install gitlab
+  package:
+    name: gitlab-ce
+    state: latest
+  register: gitlab_install
+
+- name: initiate configuration
+  command: gitlab-ctl reconfigure
+  when: gitlab_install is defined and gitlab_install.changed
+
+- name: configure gitlab
+  template:
+    src: gitlab.rb.j2
+    dest: /etc/gitlab/gitlab.rb
+    owner: root
+    group: root
+    mode: 0600
+  notify:
+    - reconfigure gitlab
+    - restart gitlab
+
+- name: create demo user
+  become_user: root
+  command: "gitlab-rails runner -e production \"{{ lookup('file', 'create-user.rb') }}\""
+
+# FIXME: https://gitlab.com/gitlab-org/gitlab-ce/issues/27954
+- pause:
+    prompt: "Sign into Gitlab | Settings > Access Tokens | Create an Personal Access Token with name 'api' | Enter API Key"
+  register: private_token_result
+
+- set_fact:
+    private_token: '{{ private_token_result.user_input }}'
+  when: private_token is not defined
+
+- name: check for demo project
+  uri:
+    url: 'http://{{ api_url }}/api/v4/projects?search=demoservice'
+    method: GET
+    headers:
+      PRIVATE-TOKEN: '{{ private_token }}'
+      Content-Type: 'application/json'
+  register: gitlab_project
+
+- debug:
+    var: gitlab_project.json
+
+- name: create demo project
+  uri:
+    url: 'http://{{ api_url }}/api/v4/projects'
+    method: POST
+    headers:
+      PRIVATE-TOKEN: '{{ private_token }}'
+      Content-Type: 'application/json'
+    body: '{"name": "demoservice"}'
+    status_code: 201
+  when: gitlab_project.json|length == 0
+
+- name: check for demo user ssh key
+  uri:
+    url: 'http://{{ api_url }}/api/v4/user/keys'
+    method: GET
+    headers:
+      PRIVATE-TOKEN: '{{ private_token }}'
+      Content-Type: 'application/json'
+  register: gitlab_ssh_keys
+
+- set_fact:
+    ssh_key: "{{ lookup('file', 'demo.key.pub') }}"
+
+- set_fact:
+    keys_api_request:
+      key: "{{ ssh_key }}"
+      title: default
+
+- name: copy demo user ssh key
+  uri:
+    url: 'http://{{ api_url }}/api/v4/user/keys'
+    method: POST
+    headers:
+      PRIVATE-TOKEN: '{{ private_token }}'
+      Content-Type: 'application/json'
+    body: "{{ keys_api_request|to_json }}"
+    status_code: 201
+  # ooft - hack hack hack
+  # https://github.com/ansible/ansible/issues/20379
+  when: gitlab_ssh_keys| to_json | from_json | json_query(query)| length == 0
+  vars:
+    query: "json[*].title|[?contains(@, 'default')]"

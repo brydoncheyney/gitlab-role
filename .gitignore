@@ -1,0 +1,4 @@
+playbook.retry
+*.key
+*.key.pub
+.vagrant
