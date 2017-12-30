@@ -94,6 +94,7 @@ ansible-playbook --inventory inventory \
                  --private-key /home/${USER}/.vagrant.d/insecure_private_key \
                  --extra-vars 'gitlab_prompt_for_private_token=true' \
                  playbook.yml
+```
 
 You will have to create an inventory file and configure [Virtualbox
 Networking](https://www.vagrantup.com/docs/networking/) for a local
