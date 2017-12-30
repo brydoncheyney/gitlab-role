@@ -1,5 +1,6 @@
 - name: reconfigure gitlab
   command: gitlab-ctl reconfigure
+  no_log: true
 
 - name: restart gitlab
   command: gitlab-ctl restart

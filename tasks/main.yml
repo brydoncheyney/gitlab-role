@@ -21,7 +21,7 @@
     msg: 'Public key file `demo.key.pub` must exist! Generate key pair with `ssh-keygen -t rsa -b 4096 -C "demo@dev.null" -f demo.key -N ""`'
 
 - set_fact:
-    api_url: '{{ ansible_default_ipv4.address }}'
+    api_url: '{{ ansible_default_ipv4.address }}/{{ gitlab_api_root }}'
 
 - name: install dependencies
   package:
@@ -34,11 +34,11 @@
 - name: install gitlab gpg key
   rpm_key:
     state: present
-    key: https://packages.gitlab.com/gpg.key
+    key: '{{ gitlab_gpg_key }}'
 
 - name: install gitlab repo
   get_url:
-    url: https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/config_file.repo?os=centos&dist=7
+    url: '{{ gitlab_repo_url }}'
     dest: /etc/yum.repos.d/gitlab-ce.repo
     owner: root
     group: root
@@ -46,13 +46,15 @@
 
 - name: install gitlab
   package:
-    name: gitlab-ce
-    state: latest
+    name: 'gitlab-ce-{{ gitlab_version }}'
+    state: present
   register: gitlab_install
 
 - name: initiate configuration
   command: gitlab-ctl reconfigure
-  when: gitlab_install is defined and gitlab_install.changed
+  when:
+    - gitlab_install is defined
+    - gitlab_install.changed
 
 - name: configure gitlab
   template:
@@ -65,70 +67,24 @@
     - reconfigure gitlab
     - restart gitlab
 
-- name: create demo user
-  become_user: root
-  command: "gitlab-rails runner -e production \"{{ lookup('file', 'create-user.rb') }}\""
-
 # FIXME: https://gitlab.com/gitlab-org/gitlab-ce/issues/27954
 - pause:
     prompt: "Sign into Gitlab | Settings > Access Tokens | Create an Personal Access Token with name 'api' | Enter API Key"
-  register: private_token_result
+  when:
+    - gitlab_private_token is not defined
+    - gitlab_prompt_for_private_token
+  register: gitlab_private_token_result
 
 - set_fact:
-    private_token: '{{ private_token_result.user_input }}'
-  when: private_token is not defined
+    gitlab_private_token: '{{ gitlab_private_token_result.user_input }}'
+  when:
+    - gitlab_private_token is not defined
+    - gitlab_private_token_result.user_input is defined
 
-- name: check for demo project
-  uri:
-    url: 'http://{{ api_url }}/api/v4/projects?search=demoservice'
-    method: GET
-    headers:
-      PRIVATE-TOKEN: '{{ private_token }}'
-      Content-Type: 'application/json'
-  register: gitlab_project
+- include_tasks: users.yml
 
-- debug:
-    var: gitlab_project.json
+- include_tasks: ssh_keys.yml
+  when: gitlab_private_token is defined
 
-- name: create demo project
-  uri:
-    url: 'http://{{ api_url }}/api/v4/projects'
-    method: POST
-    headers:
-      PRIVATE-TOKEN: '{{ private_token }}'
-      Content-Type: 'application/json'
-    body: '{"name": "demoservice"}'
-    status_code: 201
-  when: gitlab_project.json|length == 0
-
-- name: check for demo user ssh key
-  uri:
-    url: 'http://{{ api_url }}/api/v4/user/keys'
-    method: GET
-    headers:
-      PRIVATE-TOKEN: '{{ private_token }}'
-      Content-Type: 'application/json'
-  register: gitlab_ssh_keys
-
-- set_fact:
-    ssh_key: "{{ lookup('file', 'demo.key.pub') }}"
-
-- set_fact:
-    keys_api_request:
-      key: "{{ ssh_key }}"
-      title: default
-
-- name: copy demo user ssh key
-  uri:
-    url: 'http://{{ api_url }}/api/v4/user/keys'
-    method: POST
-    headers:
-      PRIVATE-TOKEN: '{{ private_token }}'
-      Content-Type: 'application/json'
-    body: "{{ keys_api_request|to_json }}"
-    status_code: 201
-  # ooft - hack hack hack
-  # https://github.com/ansible/ansible/issues/20379
-  when: gitlab_ssh_keys| to_json | from_json | json_query(query)| length == 0
-  vars:
-    query: "json[*].title|[?contains(@, 'default')]"
+- include_tasks: projects.yml
+  when: gitlab_private_token is defined

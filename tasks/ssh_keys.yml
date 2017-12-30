@@ -1,0 +1,31 @@
+- name: check for demo user ssh key
+  uri:
+    url: 'http://{{ api_url }}/user/keys'
+    method: GET
+    headers:
+      PRIVATE-TOKEN: '{{ private_token }}'
+      Content-Type: 'application/json'
+  register: gitlab_ssh_keys
+
+- set_fact:
+    ssh_key: "{{ lookup('file', 'demo.key.pub') }}"
+
+- set_fact:
+    keys_api_request:
+      key: "{{ ssh_key }}"
+      title: default
+
+- name: copy demo user ssh key
+  uri:
+    url: 'http://{{ api_url }}/user/keys'
+    method: POST
+    headers:
+      PRIVATE-TOKEN: '{{ private_token }}'
+      Content-Type: 'application/json'
+    body: "{{ keys_api_request|to_json }}"
+    status_code: 201
+  # ooft - hack hack hack
+  # https://github.com/ansible/ansible/issues/20379
+  when: gitlab_ssh_keys | to_json | from_json | json_query(query)| length == 0
+  vars:
+    query: "json[*].title|[?contains(@, 'default')]"

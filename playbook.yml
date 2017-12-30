@@ -1,11 +1,14 @@
 - hosts: all
   become: yes
 
-  vars:
-    private_token: '7_A64Qvi1xfxsMhSGvHe'
-
   tasks:
+  - include_vars:
+      dir: defaults
+      extensions: ['yml']
+  - include_vars:
+      dir: vars
+      extensions: ['yml']
   - include_tasks: tasks/main.yml
 
   handlers:
-  - include_tasks: handlers/main.yml
+  - import_tasks: handlers/main.yml
