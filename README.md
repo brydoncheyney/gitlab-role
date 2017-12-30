@@ -95,5 +95,6 @@ ansible-playbook --inventory inventory \
                  --extra-vars 'gitlab_prompt_for_private_token=true' \
                  playbook.yml
 
-> NOTE: you will have to create an inventory file and configure
->  [Virtualbox Networking](https://www.vagrantup.com/docs/networking/)
+You will have to create an inventory file and configure [Virtualbox
+Networking](https://www.vagrantup.com/docs/networking/) for a local
+`ansible-playbook` to access and provision the guest VM.
