@@ -13,7 +13,7 @@ None
 gitlab_version: 10.3.2
 
 gitlab_gpg_key: https://packages.gitlab.com/gpg.key
-gitlab_repo_url: https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/config_file.repo?os=centos&dist=7
+gitlab_repo_url: 'https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/config_file.repo?os={{ ansible_distribution }}&dist={{ ansible_distribution_major_version }}'
 gitlab_api_root: api/v4
 ```
 
