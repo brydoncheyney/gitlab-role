@@ -1,16 +1,30 @@
-# FIXME: https://gitlab.com/gitlab-org/gitlab-ce/issues/27954
 - name: check for demo user
   uri:
-    url: 'http://{{ api_url }}/users?search=demo'
+    url: 'http://{{ gitlab_api_url }}/users?search=demo'
     method: GET
     headers:
-      PRIVATE-TOKEN: '{{ gitlab_private_token }}'
+      PRIVATE-TOKEN: '{{ gitlab_api_private_token }}'
       Content-Type: 'application/json'
     status_code: 200
-  when: gitlab_private_token is defined
+  when: gitlab_api_private_token is defined
   register: gitlab_user
 
+- set_fact:
+    users_api_request:
+      admin: true
+      email: 'demo@dev.null'
+      confirmed_at: Time.now
+      name: 'demo'
+      password: 'demo user'
+      username: 'demo'
+
 - name: create demo user
-  become_user: root
-  command: "gitlab-rails runner -e production \"{{ lookup('file', 'create-user.rb') }}\""
-  when: gitlab_private_token is not defined or gitlab_user.json|length == 0
+  uri:
+    url: 'http://{{ gitlab_api_url }}/users'
+    method: POST
+    headers:
+      PRIVATE-TOKEN: '{{ gitlab_api_private_token }}'
+      Content-Type: 'application/json'
+    body: "{{ users_api_request|to_json }}"
+    status_code: 201
+  when: gitlab_user.json|length == 0

@@ -1,9 +1,9 @@
 - name: check for demo user ssh key
   uri:
-    url: 'http://{{ api_url }}/user/keys'
+    url: 'http://{{ gitlab_api_url }}/user/keys'
     method: GET
     headers:
-      PRIVATE-TOKEN: '{{ private_token }}'
+      PRIVATE-TOKEN: '{{ gitlab_api_private_token }}'
       Content-Type: 'application/json'
   register: gitlab_ssh_keys
 
@@ -17,10 +17,10 @@
 
 - name: copy demo user ssh key
   uri:
-    url: 'http://{{ api_url }}/user/keys'
+    url: 'http://{{ gitlab_api_url }}/user/keys'
     method: POST
     headers:
-      PRIVATE-TOKEN: '{{ private_token }}'
+      PRIVATE-TOKEN: '{{ gitlab_api_private_token }}'
       Content-Type: 'application/json'
     body: "{{ keys_api_request|to_json }}"
     status_code: 201

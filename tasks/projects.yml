@@ -1,18 +1,18 @@
 - name: check for demo project
   uri:
-    url: 'http://{{ api_url }}/projects?search=demoservice'
+    url: 'http://{{ gitlab_api_url }}/projects?search=demoservice'
     method: GET
     headers:
-      PRIVATE-TOKEN: '{{ private_token }}'
+      PRIVATE-TOKEN: '{{ gitlab_api_private_token }}'
       Content-Type: 'application/json'
   register: gitlab_project
 
 - name: create demo project
   uri:
-    url: 'http://{{ api_url }}/projects'
+    url: 'http://{{ gitlab_api_url }}/projects'
     method: POST
     headers:
-      PRIVATE-TOKEN: '{{ private_token }}'
+      PRIVATE-TOKEN: '{{ gitlab_api_private_token }}'
       Content-Type: 'application/json'
     body: '{"name": "demoservice"}'
     status_code: 201

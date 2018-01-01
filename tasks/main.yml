@@ -21,7 +21,8 @@
     msg: 'Public key file `demo.key.pub` must exist! Generate key pair with `ssh-keygen -t rsa -b 4096 -C "demo@dev.null" -f demo.key -N ""`'
 
 - set_fact:
-    api_url: '{{ ansible_default_ipv4.address }}/{{ gitlab_api_root }}'
+    gitlab_api_url: '{{ ansible_default_ipv4.address }}/{{ gitlab_api_root }}'
+    gitlab_api_private_token: '{{ 9999999999999999 | random | to_uuid }}'
 
 - name: install dependencies
   package:
@@ -77,23 +78,20 @@
     - restart gitlab
 
 # FIXME: https://gitlab.com/gitlab-org/gitlab-ce/issues/27954
-- pause:
-    prompt: "Sign into Gitlab | Settings > Access Tokens | Create an Personal Access Token with name 'api' | Enter API Key"
-  when:
-    - gitlab_private_token is not defined
-    - gitlab_prompt_for_private_token
-  register: gitlab_private_token_result
-
-- set_fact:
-    gitlab_private_token: '{{ gitlab_private_token_result.user_input }}'
-  when:
-    - gitlab_private_token is not defined
-    - gitlab_private_token_result.user_input is defined
+- name: generate api token
+  command: 'gitlab-rails runner -e production "{{ generate_api_token_command }}"'
+  vars:
+    generate_api_token_command: "PersonalAccessToken.new(user: User.where(id: 1).first, name: 'ansible_api', token: '{{ gitlab_api_private_token }}', scopes: ['api','read_user', 'sudo'], expires_at: Time.now + 1.day) do |t| t.save!; end"
 
 - include_tasks: users.yml
 
 - include_tasks: ssh_keys.yml
-  when: gitlab_private_token is defined
+  when: gitlab_api_private_token is defined
 
 - include_tasks: projects.yml
-  when: gitlab_private_token is defined
+  when: gitlab_api_private_token is defined
+
+- name: revoke api token
+  command: 'gitlab-rails runner -e production "{{ revoke_api_token_command }}"'
+  vars:
+    revoke_api_token_command: "PersonalAccessToken.where(user: User.where(id: 1).first, name: 'ansible_api').map {|t| t.revoked = true; t.save! }"
