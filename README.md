@@ -1,7 +1,7 @@
 # Gitlab Role
 
 An [Ansible](https://www.ansible.com/) role to automate the installation and
-configuration of [Gitlab](https://gitlab.com/) on CentOS7.
+configuration of [Gitlab](https://gitlab.com/) on CentOS6/7.
 
 ## Requirements
 
