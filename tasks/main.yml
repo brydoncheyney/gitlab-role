@@ -35,6 +35,7 @@
   rpm_key:
     state: present
     key: '{{ gitlab_gpg_key }}'
+  register: gitlab_import_key
 
 - name: install gitlab repo
   get_url:
@@ -44,10 +45,18 @@
     group: root
     mode: 0644
 
+- name: make yum cache
+  command: "yum -q makecache -y --disablerepo='*' --enablerepo='{{ item }}'"
+  with_items:
+    - gitlab_gitlab-ce
+    - gitlab_gitlab-ce-source
+  when: gitlab_import_key.changed
+
 - name: install gitlab
   package:
     name: 'gitlab-ce-{{ gitlab_version }}'
     state: present
+    update_cache: yes
   register: gitlab_install
 
 - name: initiate configuration
