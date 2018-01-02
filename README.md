@@ -66,3 +66,9 @@ ansible-playbook --inventory inventory \
 You will have to create an inventory file and configure [Virtualbox
 Networking](https://www.vagrantup.com/docs/networking/) for a local
 `ansible-playbook` to access and provision the guest VM...
+
+## License
+
+The MIT License (MIT)
+
+Copyright (c) 2018 Brydon Cheyney
